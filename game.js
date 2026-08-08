@@ -172,6 +172,29 @@
     },
   };
 
+  // ================================================================ ASSETS
+  // Hero portraits + the sliced enemy sprite sheet. The game renders these
+  // images; if any fails to load it falls back to procedural canvas art.
+  function makeImg(src) { const im = new Image(); im.src = src; return im; }
+  function imgReady(im) { return !!im && im.complete && im.naturalWidth > 0; }
+
+  const HERO_IMG = { bolt: makeImg("assets/bolt.png"), star: makeImg("assets/star.png") };
+  const ENEMY_IMG = [];
+  for (let i = 0; i < 19; i++) ENEMY_IMG.push(makeImg("assets/enemy_" + String(i).padStart(2, "0") + ".png"));
+
+  // Which sprites each enemy TYPE can wear (indices into ENEMY_IMG).
+  const ENEMY_SPRITES = {
+    swarm: [4, 16, 17],            // bat, eyeball, spiked ball
+    grunt: [0, 2, 5, 6, 9, 10, 15],// goblin, skeleton, slime, plant, archer, pirate, barrel
+    ghost: [3, 12],               // wraith, fire elemental
+    brute: [1, 7, 8, 11, 13, 14], // golem, treant, boar, yeti, robot, crystal-skull
+    boss: [18],                   // treasure-chest mimic
+  };
+
+  // repaint the title thumbnails once hero art arrives
+  HERO_IMG.bolt.onload = () => drawHeroThumbs();
+  HERO_IMG.star.onload = () => drawHeroThumbs();
+
   // ================================================================ STATE
   const State = {
     mode: "title", // title | play | levelup | paused | gameover
@@ -314,12 +337,14 @@
     const a = ang !== undefined ? ang : rand(0, TAU);
     // scale HP with time (difficulty ramp)
     const ramp = 1 + State.t / 70;
+    const pool = ENEMY_SPRITES[type] || ENEMY_SPRITES.grunt;
     State.enemies.push({
       type, x: p.x + Math.cos(a) * radius, y: p.y + Math.sin(a) * radius,
       r: def.r, hp: def.hp * ramp, maxHp: def.hp * ramp,
       speed: def.speed * (1 + State.t / 400),
       dmg: def.dmg, xp: def.xp,
       color: def.color, color2: def.color2, boss: !!def.boss,
+      imgIdx: pool[randInt(0, pool.length - 1)],
       hitFlash: 0, knock: { x: 0, y: 0 }, phase: rand(0, TAU),
       hitCd: 0,
     });
@@ -917,7 +942,40 @@
     ctx.restore();
   }
 
+  // Image-based enemy render (falls back to procedural art if sprite missing).
   function drawEnemy(e) {
+    const im = ENEMY_IMG[e.imgIdx];
+    const bob = Math.sin(e.phase) * (e.boss ? 3 : 2);
+    if (!imgReady(im)) { drawEnemyProcedural(e); return; }
+
+    const targetH = e.r * (e.boss ? 3.0 : 2.85);
+    const scale = targetH / im.naturalHeight;
+    const w = im.naturalWidth * scale, h = targetH;
+    const x = e.x, y = e.y + bob;
+
+    // grounding shadow
+    ctx.save();
+    ctx.translate(x, e.y + e.r * 0.85);
+    ctx.scale(1, 0.4);
+    ctx.fillStyle = "rgba(0,0,0,0.32)";
+    ctx.beginPath(); ctx.arc(0, 0, e.r * 0.95, 0, TAU); ctx.fill();
+    ctx.restore();
+
+    const dx = x - w / 2;
+    const dy = (y + e.r) - h; // feet sit on the collision circle's base
+    if (e.hitFlash > 0) {
+      ctx.save();
+      ctx.filter = "brightness(2.6)";
+      ctx.drawImage(im, dx, dy, w, h);
+      ctx.restore();
+    } else {
+      ctx.drawImage(im, dx, dy, w, h);
+    }
+    drawEnemyHpBar(e, dy - 6);
+  }
+
+  // ---- original procedural enemy art (fallback) ----
+  function drawEnemyProcedural(e) {
     ctx.save();
     ctx.translate(e.x, e.y);
     const bob = Math.sin(e.phase) * (e.boss ? 3 : 2);
@@ -1015,11 +1073,12 @@
     ctx.shadowBlur = 0;
   }
 
-  function drawEnemyHpBar(e) {
+  function drawEnemyHpBar(e, topY) {
     if (e.hp >= e.maxHp) return;
     const w = e.boss ? 90 : e.r * 2;
     const h = e.boss ? 7 : 3;
-    const x = e.x - w / 2, y = e.y - e.r - (e.boss ? 20 : 8);
+    const x = e.x - w / 2;
+    const y = topY !== undefined ? topY : e.y - e.r - (e.boss ? 20 : 8);
     ctx.fillStyle = "rgba(0,0,0,0.6)";
     ctx.fillRect(x, y, w, h);
     ctx.fillStyle = e.boss ? "#ff5a5a" : "#7ef08a";
@@ -1125,8 +1184,8 @@
   }
 
   // ================================================================ HERO SPRITE
-  // Draws a cute chibi superhero matching the two boys. `opts.thumb` scales up.
-  function drawHeroSprite(g, x, y, hero, opts) {
+  // Procedural chibi superhero (fallback when the portrait image is missing).
+  function drawHeroSpriteProcedural(g, x, y, hero, opts) {
     opts = opts || {};
     const c = hero.colors;
     const s = opts.scale || 1;      // overall scale
@@ -1274,7 +1333,7 @@
   }
 
   function drawPlayer(p) {
-    // glow ring when invulnerable / low hp
+    // glow ring when low hp
     if (p.hp / p.maxHp < 0.3) {
       ctx.save();
       ctx.globalAlpha = 0.35 + Math.sin(State.t * 8) * 0.15;
@@ -1282,9 +1341,33 @@
       ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 10, 0, TAU); ctx.stroke();
       ctx.restore();
     }
-    drawHeroSprite(ctx, p.x, p.y - 6, p.hero, {
-      scale: 1.35, face: p.face, walk: p.walkPhase, invuln: p.invuln > 0,
-    });
+
+    const im = HERO_IMG[p.hero.id];
+    if (!imgReady(im)) {
+      drawHeroSpriteProcedural(ctx, p.x, p.y - 6, p.hero, {
+        scale: 1.35, face: p.face, walk: p.walkPhase, invuln: p.invuln > 0,
+      });
+      return;
+    }
+    const H = 64;
+    const scale = H / im.naturalHeight;
+    const w = im.naturalWidth * scale;
+    const bob = p.moving ? -Math.abs(Math.sin(p.walkPhase)) * 3 : Math.sin(State.t * 2) * -1.5;
+
+    // grounding shadow
+    ctx.save();
+    ctx.translate(p.x, p.y + p.r * 0.7);
+    ctx.scale(1, 0.4);
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.beginPath(); ctx.arc(0, 0, p.r * 0.9, 0, TAU); ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(p.x, p.y + bob);
+    if (p.invuln > 0 && Math.floor(State.t * 20) % 2 === 0) ctx.globalAlpha = 0.45;
+    if (p.face < 0) ctx.scale(-1, 1);
+    ctx.drawImage(im, -w / 2, -H * 0.72, w, H); // body centred on the point, feet below
+    ctx.restore();
   }
 
   // ================================================================ HERO THUMBS (title)
@@ -1293,11 +1376,19 @@
       const heroId = cv.getAttribute("data-hero");
       const g = cv.getContext("2d");
       g.clearRect(0, 0, cv.width, cv.height);
-      g.save();
-      g.translate(cv.width / 2, cv.height * 0.72);
-      g.scale(3.4, 3.4);
-      drawHeroSprite(g, 0, 0, HEROES[heroId], { scale: 1, face: 1, walk: 0 });
-      g.restore();
+      const im = HERO_IMG[heroId];
+      if (imgReady(im)) {
+        const pad = 8;
+        const s = Math.min((cv.height - pad * 2) / im.naturalHeight, (cv.width - pad * 2) / im.naturalWidth);
+        const w = im.naturalWidth * s, h = im.naturalHeight * s;
+        g.drawImage(im, (cv.width - w) / 2, (cv.height - h) / 2, w, h);
+      } else {
+        g.save();
+        g.translate(cv.width / 2, cv.height * 0.72);
+        g.scale(3.4, 3.4);
+        drawHeroSpriteProcedural(g, 0, 0, HEROES[heroId], { scale: 1, face: 1, walk: 0 });
+        g.restore();
+      }
     });
   }
 
