@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Crawford Boys: Survivor</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="game-shell">
+    <canvas id="game"></canvas>
+
+    <!-- Heads-up display -->
+    <div id="hud" class="hidden">
+      <div class="hud-top">
+        <div class="hud-bars">
+          <div class="bar hp"><div class="bar-fill" id="hp-fill"></div><span class="bar-label" id="hp-label">HP</span></div>
+          <div class="bar xp"><div class="bar-fill" id="xp-fill"></div><span class="bar-label" id="xp-label">LV 1</span></div>
+        </div>
+        <div class="hud-stats">
+          <div class="stat"><span class="stat-ico">⏱️</span><span id="time">00:00</span></div>
+          <div class="stat"><span class="stat-ico">💀</span><span id="kills">0</span></div>
+          <div class="stat"><span class="stat-ico">⭐</span><span id="coins">0</span></div>
+        </div>
+      </div>
+      <button id="pause-btn" title="Pause">⏸</button>
+    </div>
+
+    <!-- Title / character select -->
+    <div id="title" class="overlay">
+      <div class="title-inner">
+        <h1>CRAWFORD BOYS</h1>
+        <h2>SURVIVOR</h2>
+        <p class="tagline">Two super brothers. Endless waves. How long can you last?</p>
+
+        <div class="char-select">
+          <div class="hero-card" data-hero="bolt">
+            <div class="hero-art bolt-art">
+              <!-- Bolt is drawn to canvas thumbnail via JS -->
+              <canvas class="hero-thumb" width="150" height="200" data-hero="bolt"></canvas>
+            </div>
+            <h3>BOLT</h3>
+            <p class="hero-desc">The Lightning Kid. Fires crackling bolts that chain between foes. Fast and fearless.</p>
+            <ul class="hero-traits">
+              <li>⚡ Chain Lightning</li>
+              <li>👟 +Move Speed</li>
+              <li>❤️ 100 HP</li>
+            </ul>
+            <button class="pick-btn" data-hero="bolt">PLAY AS BOLT</button>
+          </div>
+
+          <div class="hero-card" data-hero="star">
+            <div class="hero-art star-art">
+              <canvas class="hero-thumb" width="150" height="200" data-hero="star"></canvas>
+            </div>
+            <h3>STAR</h3>
+            <p class="hero-desc">The Golden Guardian. Orbiting stars smash enemies and throwing stars pierce the horde. Tough as armor.</p>
+            <ul class="hero-traits">
+              <li>🌟 Orbiting Stars</li>
+              <li>🛡️ +Armor</li>
+              <li>❤️ 140 HP</li>
+            </ul>
+            <button class="pick-btn" data-hero="star">PLAY AS STAR</button>
+          </div>
+        </div>
+
+        <div class="controls-hint">
+          <strong>Move:</strong> WASD / Arrow Keys / Left-Stick (or drag on touch) &nbsp;•&nbsp;
+          <strong>Attacks are automatic.</strong> &nbsp;•&nbsp; Survive!
+        </div>
+      </div>
+    </div>
+
+    <!-- Level up screen -->
+    <div id="levelup" class="overlay hidden">
+      <div class="levelup-inner">
+        <h2>LEVEL UP!</h2>
+        <p>Choose an upgrade</p>
+        <div id="upgrade-cards" class="upgrade-cards"></div>
+      </div>
+    </div>
+
+    <!-- Pause screen -->
+    <div id="paused" class="overlay hidden">
+      <div class="paused-inner">
+        <h2>PAUSED</h2>
+        <button id="resume-btn" class="big-btn">RESUME</button>
+        <button id="quit-btn" class="big-btn ghost">QUIT TO TITLE</button>
+      </div>
+    </div>
+
+    <!-- Game over -->
+    <div id="gameover" class="overlay hidden">
+      <div class="gameover-inner">
+        <h2 id="go-title">GAME OVER</h2>
+        <div class="go-stats">
+          <div><span class="go-num" id="go-time">00:00</span><span class="go-cap">Survived</span></div>
+          <div><span class="go-num" id="go-kills">0</span><span class="go-cap">Kills</span></div>
+          <div><span class="go-num" id="go-level">1</span><span class="go-cap">Level</span></div>
+        </div>
+        <p id="go-best" class="go-best"></p>
+        <button id="retry-btn" class="big-btn">PLAY AGAIN</button>
+      </div>
+    </div>
+
+    <!-- Touch controls -->
+    <div id="touch-stick" class="hidden">
+      <div id="touch-base"><div id="touch-knob"></div></div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
